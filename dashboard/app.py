@@ -39,6 +39,13 @@ def live_price_store():
 
 
 @st.cache_resource
+def return_buffer():
+    """Rolling buffer of live return points for the moving chart (~15 min at 1s)."""
+    from collections import deque
+    return deque(maxlen=900)
+
+
+@st.cache_resource
 def start_stream(tickers):
     """Background thread streaming real-time prices from Yahoo's websocket."""
     import threading
@@ -146,6 +153,7 @@ def live_portfolio():
         "FROM trades WHERE ticker NOT IN (SELECT ticker FROM positions) GROUP BY market")
     realized_map = dict(zip(realized["market"], realized["pnl"])) if len(realized) else {}
 
+    live_returns = {}
     for market in ["india", "us"]:
         cash_row = cash_df[cash_df["market"] == market]
         if cash_row.empty:
@@ -173,6 +181,7 @@ def live_portfolio():
         m_hist = hist[hist["snap_date"] >= month_ago]
         month_base = float(m_hist["total"].iloc[0]) if len(m_hist) else base
         month_pct = (total / month_base - 1) * 100 if month_base else 0.0
+        live_returns["India" if market == "india" else "US"] = round(ret_pct, 4)
 
         st.subheader(MARKET_LABEL[market])
         c1, c2, c3, c4, c5, c6 = st.columns(6)
@@ -222,6 +231,27 @@ def live_portfolio():
             ).properties(height=280, title="Profit / loss per position")
             g2.altair_chart(bars, use_container_width=True)
         st.divider()
+
+    if live_returns:
+        buf = return_buffer()
+        buf.append({"time": datetime.now(), **live_returns})
+        if len(buf) > 1:
+            st.subheader("📈 Live return — moving with your profit")
+            ldf = pd.DataFrame(list(buf)).melt("time", var_name="Market",
+                                               value_name="Return %")
+            line = alt.Chart(ldf).mark_line(interpolate="monotone").encode(
+                x=alt.X("time:T", axis=alt.Axis(format="%H:%M:%S"), title=None),
+                y=alt.Y("Return %:Q", scale=alt.Scale(zero=False)),
+                color=alt.Color("Market:N",
+                                scale=alt.Scale(domain=["India", "US"],
+                                                range=["#f59e0b", "#3b82f6"]),
+                                legend=alt.Legend(title=None, orient="top")),
+                tooltip=["Market", alt.Tooltip("Return %:Q", format=".3f"),
+                         alt.Tooltip("time:T", format="%H:%M:%S")],
+            ).properties(height=260)
+            st.altair_chart(line, use_container_width=True)
+            st.caption("India in orange, US in blue — a new point every second while "
+                       "this page is open; the line goes flat when both markets are closed.")
 
     hist_all = load("SELECT snap_date, market, total FROM portfolio_history ORDER BY snap_date")
     if hist_all["snap_date"].nunique() > 2:
