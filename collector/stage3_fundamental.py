@@ -84,6 +84,25 @@ def score_from_info(info):
     return round(pts / max_pts * 100), reasons, peg
 
 
+CYCLICAL_SECTORS = {"Energy", "Basic Materials", "Industrials", "Consumer Cyclical"}
+
+
+def lynch_category(eg, sector):
+    """Lynch sorted every stock into categories; this is a data-driven approximation."""
+    if eg is None:
+        return "Unclassified"
+    g = eg * 100
+    if g <= 0:
+        return "Turnaround / struggling"
+    if sector in CYCLICAL_SECTORS and g < 20:
+        return "Cyclical"
+    if g < 10:
+        return "Slow grower"
+    if g < 20:
+        return "Stalwart"
+    return "Fast grower"
+
+
 def run(ticker_objs):
     """ticker_objs: {ticker: yfinance.Ticker} for deep-dive candidates only."""
     print(f"  [stage3] Lynch GARP fundamentals for {len(ticker_objs)} stocks")
@@ -92,8 +111,12 @@ def run(ticker_objs):
         try:
             info = obj.info or {}
             s, reasons, peg = score_from_info(info)
+            eg = info.get("earningsGrowth")
             out[t] = {
-                "score": s, "reasons": reasons, "peg": peg,
+                "score": s, "reasons": reasons, "peg": round(peg, 2) if peg else None,
+                "eps_growth": round(eg * 100, 1) if eg is not None else None,
+                "debt_to_equity": info.get("debtToEquity"),
+                "lynch_category": lynch_category(eg, info.get("sector", "")),
                 "name": info.get("shortName") or info.get("longName") or t,
                 "sector": info.get("sector", ""),
                 "pe": info.get("trailingPE"),
@@ -105,6 +128,8 @@ def run(ticker_objs):
         except Exception as e:
             print(f"  [stage3] {t}: {e}")
             out[t] = {"score": 50, "reasons": ["Fundamentals unavailable"], "peg": None,
+                      "eps_growth": None, "debt_to_equity": None,
+                      "lynch_category": "Unclassified",
                       "name": t, "sector": "", "pe": None, "market_cap": None,
                       "recommendation_mean": None, "target_mean_price": None,
                       "current_price": None}

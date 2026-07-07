@@ -106,6 +106,33 @@ def color_verdict(v):
     return f"color: {VERDICT_COLORS.get(v, '#111')}; font-weight: 600"
 
 
+# ── Peter Lynch's toolkit ──
+LYNCH_CATEGORY_COLORS = {
+    "Fast grower": "#16a34a", "Stalwart": "#0891b2", "Slow grower": "#ca8a04",
+    "Cyclical": "#ea580c", "Turnaround / struggling": "#dc2626",
+    "Unclassified": "#9ca3af",
+}
+
+
+def color_peg(v):
+    """Lynch's headline test: PEG below 1 is a bargain, above 2 is overpriced."""
+    if not isinstance(v, (int, float)) or pd.isna(v):
+        return ""
+    if v < 1:
+        return "color: #16a34a; font-weight: 600"   # cheap growth — Lynch buys
+    if v < 2:
+        return "color: #ca8a04"                       # fairly priced
+    return "color: #dc2626"                           # too expensive
+
+
+def color_category(v):
+    return f"color: {LYNCH_CATEGORY_COLORS.get(v, '#111')}; font-weight: 600"
+
+
+def fmt(v, suffix="", nd=2):
+    return f"{v:.{nd}f}{suffix}" if isinstance(v, (int, float)) and pd.notna(v) else "—"
+
+
 st.sidebar.title("📈 Trading System")
 page = st.sidebar.radio("Page", ["Live Portfolio", "Today's Picks", "Stock Detail",
                                  "Score History", "Alerts Log"])
@@ -283,31 +310,59 @@ if page == "Live Portfolio":
 
 elif page == "Today's Picks":
     st.title(f"Today's Picks — {latest}")
-    market = st.radio("Market", ["All", "India (Nifty 50)", "US (S&P 500)"], horizontal=True)
-    show_all = st.checkbox("Include screened-out stocks (technical score only)")
+    st.caption("Ranked the way Peter Lynch ranked stocks: growth you can buy cheaply, "
+               "with a clean balance sheet.")
 
-    df = load("SELECT * FROM scores WHERE run_date = ? ORDER BY final_score DESC", (latest,))
+    with st.expander("📖 How to read this table (Peter Lynch's tools)"):
+        st.markdown("""
+- **PEG** = P/E ÷ earnings-growth rate — *Lynch's single most important number.*
+  **Below 1 is a bargain** (green): you're paying less than the company's growth is worth.
+  Above 2 (red) means the price has run too far ahead of the growth.
+- **EPS Growth %** — how fast profits are growing. Lynch's sweet spot is **15–30%/yr** —
+  fast enough to compound, not so fast it can't last.
+- **P/E** — how many years of earnings you pay for the stock. Lower is cheaper.
+- **Debt/Equity** — Lynch avoided debt-heavy companies; **lower is safer.**
+- **Category** — Lynch sorted every stock into types. His big winners ("ten-baggers")
+  came from **Fast growers**; **Stalwarts** are steady blue-chips; **Cyclicals** rise and
+  fall with the economy; **Turnarounds** are risky recovery bets.
+""")
+
+    market = st.radio("Market", ["All", "India (Nifty 50)", "US (S&P 500)"], horizontal=True)
+    df = load("SELECT * FROM scores WHERE run_date = ? AND deep_dive = 1 "
+              "ORDER BY final_score DESC", (latest,))
+    for col in ["lynch_category", "peg", "eps_growth", "pe", "debt_to_equity"]:
+        if col not in df.columns:
+            df[col] = None
     if market.startswith("India"):
         df = df[df["market"] == "india"]
     elif market.startswith("US"):
         df = df[df["market"] == "us"]
-    if not show_all:
-        df = df[df["deep_dive"] == 1]
+
+    cats = ["All"] + [c for c in LYNCH_CATEGORY_COLORS if c in set(df.get("lynch_category", []))]
+    pick_cat = st.selectbox("Lynch category", cats)
+    if pick_cat != "All":
+        df = df[df["lynch_category"] == pick_cat]
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Stocks analyzed", len(df))
-    c2.metric("STRONG", int((df["verdict"] == "STRONG").sum()))
-    c3.metric("MODERATE", int((df["verdict"] == "MODERATE").sum()))
-    c4.metric("Top score", f"{int(df['final_score'].max())}%" if len(df) else "—")
+    c2.metric("Fast growers", int((df["lynch_category"] == "Fast grower").sum())
+              if "lynch_category" in df else 0)
+    c3.metric("PEG < 1 (bargains)", int((df["peg"] < 1).sum()) if "peg" in df else 0)
+    c4.metric("STRONG buys", int((df["verdict"] == "STRONG").sum()))
 
-    view = df[["ticker", "name", "market", "verdict", "final_score", "tech_score",
-               "fund_score", "sent_score", "price", "ret_1m_pct", "ret_1y_pct",
-               "reasons"]].rename(columns={
-        "final_score": "Score %", "tech_score": "Tech", "fund_score": "Fund",
-        "sent_score": "Sent", "ret_1m_pct": "1M %", "ret_1y_pct": "1Y %",
-    })
-    st.dataframe(view.style.map(color_verdict, subset=["verdict"]),
-                 width="stretch", height=600, hide_index=True)
+    view = df[["ticker", "name", "lynch_category", "verdict", "final_score",
+               "peg", "eps_growth", "pe", "debt_to_equity", "price", "reasons"]].rename(
+        columns={"lynch_category": "Category", "final_score": "Score %", "peg": "PEG",
+                 "eps_growth": "EPS Growth %", "pe": "P/E",
+                 "debt_to_equity": "Debt/Equity", "reasons": "Why (Lynch's read)"})
+    st.dataframe(
+        view.style
+        .map(color_category, subset=["Category"])
+        .map(color_verdict, subset=["verdict"])
+        .map(color_peg, subset=["PEG"])
+        .format({"PEG": "{:.2f}", "EPS Growth %": "{:.1f}", "P/E": "{:.1f}",
+                 "Debt/Equity": "{:.0f}", "price": "{:.2f}"}, na_rep="—"),
+        width="stretch", height=600, hide_index=True)
 
 elif page == "Stock Detail":
     st.title("Stock Detail")
@@ -321,18 +376,37 @@ elif page == "Stock Detail":
     t = labels[choice]
     row = df[df["ticker"] == t].iloc[0]
 
-    c1, c2, c3, c4, c5 = st.columns(5)
-    c1.metric("Final score", f"{int(row['final_score'])}%")
-    c2.metric("Verdict", row["verdict"])
-    c3.metric("Technical", f"{int(row['tech_score'])}")
-    c4.metric("Fundamental", f"{int(row['fund_score'])}" if pd.notna(row["fund_score"]) else "—")
-    c5.metric("Sentiment", f"{int(row['sent_score'])}" if pd.notna(row["sent_score"]) else "—")
+    cat = row.get("lynch_category") or "Unclassified"
+    c1, c2, c3 = st.columns([2, 1, 1])
+    c1.metric("Lynch category", cat)
+    c2.metric("Score", f"{int(row['final_score'])}%")
+    c3.metric("Verdict", row["verdict"])
 
-    st.subheader("Why")
+    st.subheader("Peter Lynch's numbers")
+    peg = row.get("peg")
+    eg = row.get("eps_growth")
+    pe = row.get("pe")
+    de = row.get("debt_to_equity")
+    l1, l2, l3, l4 = st.columns(4)
+    peg_note = ("bargain — pay < growth" if isinstance(peg, (int, float)) and pd.notna(peg)
+                and peg < 1 else "fair" if isinstance(peg, (int, float)) and pd.notna(peg)
+                and peg < 2 else "expensive" if pd.notna(peg) else "—")
+    l1.metric("PEG ratio", fmt(peg), peg_note, delta_color="off")
+    g_note = ("sweet spot" if isinstance(eg, (int, float)) and pd.notna(eg) and 15 <= eg <= 30
+              else "fast" if isinstance(eg, (int, float)) and pd.notna(eg) and eg > 30
+              else "slow" if isinstance(eg, (int, float)) and pd.notna(eg) and eg >= 0
+              else "shrinking" if pd.notna(eg) else "—")
+    l2.metric("EPS growth", fmt(eg, "%", 1), g_note, delta_color="off")
+    l3.metric("P/E ratio", fmt(pe, "", 1))
+    l4.metric("Debt / Equity", fmt(de, "", 0),
+              "low" if isinstance(de, (int, float)) and pd.notna(de) and de < 50
+              else "high" if pd.notna(de) else "—", delta_color="off")
+
+    st.subheader("What the system sees")
     for reason in str(row["reasons"]).split(" | "):
         st.markdown(f"- {reason}")
 
-    st.subheader("Snapshot")
+    st.subheader("Price snapshot")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Price", f"{row['price']:,.2f}" if pd.notna(row["price"]) else "—")
     c2.metric("1-month return", f"{row['ret_1m_pct']:.1f}%")

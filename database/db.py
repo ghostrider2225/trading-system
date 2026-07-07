@@ -37,9 +37,23 @@ CREATE TABLE IF NOT EXISTS portfolio_history (
 """
 
 
+MIGRATIONS = [
+    "ALTER TABLE scores ADD COLUMN peg REAL",
+    "ALTER TABLE scores ADD COLUMN pe REAL",
+    "ALTER TABLE scores ADD COLUMN eps_growth REAL",
+    "ALTER TABLE scores ADD COLUMN debt_to_equity REAL",
+    "ALTER TABLE scores ADD COLUMN lynch_category TEXT",
+]
+
+
 def connect():
     conn = sqlite3.connect(DB_PATH)
     conn.executescript(SCHEMA)
+    for m in MIGRATIONS:
+        try:
+            conn.execute(m)
+        except sqlite3.OperationalError:
+            pass  # column already exists
     return conn
 
 
@@ -50,7 +64,8 @@ def save_scores(rows):
     cols = ["ticker", "market", "name", "sector", "price", "tech_score", "fund_score",
             "sent_score", "final_score", "verdict", "deep_dive", "reasons",
             "pos_in_52w_range", "ret_1m_pct", "ret_3m_pct", "ret_1y_pct",
-            "off_high_pct", "volatility_pct"]
+            "off_high_pct", "volatility_pct",
+            "peg", "pe", "eps_growth", "debt_to_equity", "lynch_category"]
     for r in rows:
         conn.execute(
             f"INSERT OR REPLACE INTO scores (run_date, run_time, {', '.join(cols)}) "
