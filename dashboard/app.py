@@ -135,7 +135,7 @@ def live_portfolio():
                 quotes.setdefault(t, {})["price"] = streamed[t]
     st.caption(f"🔴 Live — P&L updates every second ({len(streamed)} tickers streaming"
                f" from Yahoo; markets currently closed just hold their last price) · "
-               f"{datetime.now().strftime('%H:%M:%S')} UK time")
+               f"{datetime.now().strftime('%H:%M:%S')} (server time)")
 
     buy_reasons = load(
         "SELECT ticker, MAX(executed_at) AS at, reason FROM trades "
