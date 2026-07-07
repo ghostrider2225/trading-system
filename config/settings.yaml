@@ -1,0 +1,44 @@
+# Trading system configuration
+
+markets:
+  india:
+    enabled: true
+    index: "NIFTY 50"
+    suffix: ".NS"
+  us:
+    enabled: true
+    index: "S&P 500"
+
+screening:
+  # Minimum days of price history required to score a stock
+  min_history_days: 200
+  # Fundamentals + sentiment (slow, per-stock API calls) only run on the
+  # top N stocks per market ranked by technical score
+  deep_dive_top_n: 40
+
+weights:
+  technical: 0.40
+  fundamental: 0.35
+  sentiment: 0.25
+
+verdicts:
+  strong: 75      # score >= 75  -> STRONG
+  moderate: 60    # score >= 60  -> MODERATE
+  weak: 45        # score >= 45  -> WEAK
+  # below 45      -> AVOID
+
+alerts:
+  enabled: true
+  threshold: 75   # desktop notification when a stock's final score >= this
+
+paper_trading:
+  enabled: true
+  starting_cash:
+    india: 1000000   # virtual rupees
+    us: 100000       # virtual dollars
+  position_size_pct: 10   # % of starting cash per buy
+  max_positions: 10       # per market
+  buy_score: 75           # buy when final score >= this (STRONG)
+  exit_score: 55          # sell when a holding's score falls below this
+  stop_loss_pct: 8        # sell when a position is down this much
+  take_profit_pct: 25     # sell when a position is up this much
