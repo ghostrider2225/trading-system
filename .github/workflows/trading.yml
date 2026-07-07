@@ -1,0 +1,36 @@
+name: Daily trading runs
+on:
+  schedule:
+    - cron: '0 7 * * 1-5'    # 08:00 UK (summer) — Indian market run
+    - cron: '45 12 * * 1-5'  # 13:45 UK (summer) — US pre-open run
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trading-db
+  cancel-in-progress: false
+
+jobs:
+  trade:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/London
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet yfinance pandas pyyaml lxml
+      - run: python run_daily.py --auto
+      - name: Commit updated data
+        run: |
+          git config user.name "trading-bot"
+          git config user.email "actions@github.com"
+          git add database/trading.db data
+          if ! git diff --cached --quiet; then
+            git commit -m "data: scheduled run $(date '+%Y-%m-%d %H:%M')"
+            git pull --rebase origin main
+            git push
+          fi

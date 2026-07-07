@@ -59,6 +59,8 @@ def run_market(market, cfg, limit=None):
 
 def push_to_cloud():
     """Push the fresh database to GitHub so the cloud dashboard updates."""
+    if os.environ.get("GITHUB_ACTIONS"):
+        return  # the workflow commits the data itself
     root = os.path.dirname(os.path.abspath(__file__))
     if not os.path.isdir(os.path.join(root, ".git")):
         return

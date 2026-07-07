@@ -1,0 +1,21 @@
+name: Morning email report
+on:
+  schedule:
+    - cron: '0 8 * * *'  # 09:00 UK (summer), every day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  email:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/London
+      GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python email_report.py

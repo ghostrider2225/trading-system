@@ -1,0 +1,35 @@
+name: Hourly risk check
+on:
+  schedule:
+    - cron: '15 5-20 * * 1-5'  # hourly during Indian + US market hours (UTC)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trading-db
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/London
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet yfinance pandas pyyaml
+      - run: python risk_check.py
+      - name: Commit if anything changed
+        run: |
+          git config user.name "trading-bot"
+          git config user.email "actions@github.com"
+          git add database/trading.db
+          if ! git diff --cached --quiet; then
+            git commit -m "data: hourly risk check $(date '+%Y-%m-%d %H:%M')"
+            git pull --rebase origin main
+            git push
+          fi
