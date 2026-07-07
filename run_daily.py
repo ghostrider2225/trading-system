@@ -46,9 +46,17 @@ def run_market(market, cfg, limit=None):
     stats = stage2_history.run(histories)
     technicals = stage4_technical.run(histories)
 
-    # Deep-dive: fundamentals + sentiment on the technically strongest stocks
+    # Deep-dive: fundamentals + sentiment on the technically strongest stocks,
+    # plus everything we currently hold (a holding must always be fully re-judged)
     top_n = cfg["screening"]["deep_dive_top_n"]
     top = sorted(technicals, key=lambda t: technicals[t]["score"], reverse=True)[:top_n]
+    conn = db.connect()
+    held = [t for (t,) in conn.execute(
+        "SELECT ticker FROM positions WHERE market = ?", [market]).fetchall()]
+    conn.close()
+    for t in held:
+        if t not in top and t in technicals:
+            top.append(t)
     ticker_objs = {t: yf.Ticker(t) for t in top}
     fundamentals = stage3_fundamental.run(ticker_objs)
     sentiments = stage5_sentiment.run(ticker_objs, fundamentals)

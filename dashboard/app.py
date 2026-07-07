@@ -110,6 +110,7 @@ st.sidebar.title("📈 Trading System")
 page = st.sidebar.radio("Page", ["Live Portfolio", "Today's Picks", "Stock Detail",
                                  "Score History", "Alerts Log"])
 st.sidebar.caption(
+    "**Strategy: Peter Lynch GARP** — growth at a reasonable price (PEG-driven). "
     "Paper trading — virtual money, live Yahoo Finance prices, no broker involved. "
     "Scores measure how strongly the data agrees; not guaranteed probabilities, "
     "not financial advice."
