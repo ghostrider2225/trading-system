@@ -96,8 +96,10 @@ def process(rows, cfg):
             if n_positions >= pt["max_positions"] or cash < budget:
                 break
             price = float(r["price"])
-            qty = int(budget // price)
-            if qty < 1:
+            # fractional shares (like UK apps such as Trading 212) so a small
+            # balance can still hold expensive stocks
+            qty = round(budget / price, 4)
+            if qty <= 0 or qty * price > cash:
                 continue
             cash -= qty * price
             conn.execute(

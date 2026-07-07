@@ -28,7 +28,7 @@ def color(v):
 
 
 def money(cur, v):
-    return f"{cur}{v:,.0f}"
+    return f"{cur}{v:,.2f}"
 
 
 def build_html(conn):

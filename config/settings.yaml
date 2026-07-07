@@ -36,9 +36,10 @@ alerts:
 
 paper_trading:
   enabled: true
+  # £100 per market (GBPINR 126.85, GBPUSD 1.336 on 2026-07-07)
   starting_cash:
-    india: 1000000   # virtual rupees
-    us: 100000       # virtual dollars
+    india: 12684     # virtual rupees  = £100
+    us: 133.60       # virtual dollars = £100
   position_size_pct: 10   # % of starting cash per buy
   max_positions: 10       # per market
   buy_score: 75           # buy when final score >= this (STRONG)

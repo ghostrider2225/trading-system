@@ -186,21 +186,21 @@ def live_portfolio():
 
         st.subheader(MARKET_LABEL[market])
         c1, c2, c3, c4, c5, c6 = st.columns(6)
-        c1.metric("Total value", f"{cur}{total:,.0f}", f"{ret_pct:+.2f}% all-time")
-        c2.metric("Invested (at cost)", f"{cur}{invested:,.0f}")
-        c3.metric("Cash left", f"{cur}{cash:,.0f}")
-        c4.metric("Unrealized P&L", f"{cur}{unrealized:,.0f}",
+        c1.metric("Total value", f"{cur}{total:,.2f}", f"{ret_pct:+.2f}% all-time")
+        c2.metric("Invested (at cost)", f"{cur}{invested:,.2f}")
+        c3.metric("Cash left", f"{cur}{cash:,.2f}")
+        c4.metric("Unrealized P&L", f"{cur}{unrealized:,.2f}",
                   f"{(unrealized / invested * 100) if invested else 0:+.2f}%")
-        c5.metric("Today", f"{cur}{day_change:,.0f}",
+        c5.metric("Today", f"{cur}{day_change:,.2f}",
                   f"{(day_change / value_now * 100) if value_now else 0:+.2f}%")
         c6.metric("Past month", f"{month_pct:+.2f}%",
                   help="Grows meaningful as daily snapshots accumulate")
         if realized_pnl:
-            st.caption(f"Realized profit from closed trades: {cur}{realized_pnl:,.0f}")
+            st.caption(f"Realized profit from closed trades: {cur}{realized_pnl:,.2f}")
 
         if len(mpos):
             mpos["Day %"] = ((mpos["live"] / mpos["prev"] - 1) * 100).round(2)
-            mpos["P&L"] = ((mpos["live"] - mpos["avg_price"]) * mpos["qty"]).round(0)
+            mpos["P&L"] = ((mpos["live"] - mpos["avg_price"]) * mpos["qty"]).round(2)
             mpos["P&L %"] = ((mpos["live"] / mpos["avg_price"] - 1) * 100).round(2)
             mpos["Weight %"] = (mpos["qty"] * mpos["live"] / total * 100).round(1)
             mpos["Why bought"] = mpos["ticker"].map(buy_map).fillna("")
