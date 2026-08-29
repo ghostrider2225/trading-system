@@ -34,6 +34,9 @@ CREATE TABLE IF NOT EXISTS portfolio_history (
     snap_date TEXT, market TEXT, cash REAL, holdings_value REAL, total REAL,
     PRIMARY KEY (snap_date, market)
 );
+CREATE TABLE IF NOT EXISTS system_state (
+    key TEXT PRIMARY KEY, value TEXT
+);
 """
 
 

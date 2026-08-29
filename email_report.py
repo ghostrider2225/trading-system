@@ -149,5 +149,111 @@ def main():
     print(f"Report emailed to {EMAIL}.")
 
 
+def send_milestone(conn, pct, start_gbp, current_gbp, per_market, target_pct):
+    """Send completion email when profit target is hit.
+
+    Shows: starting investment, current value, P&L in GBP, elapsed time,
+    all trades (buy/sell with prices, qty, reasons, timestamps)."""
+    password = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
+    if not password:
+        print("  [email] GMAIL_APP_PASSWORD not set; skipping milestone email")
+        return
+
+    # when did portfolio start?
+    first_trade = conn.execute(
+        "SELECT MIN(executed_at) FROM trades"
+    ).fetchone()[0]
+    start_time = datetime.fromisoformat(first_trade) if first_trade else datetime.now()
+    elapsed_days = (datetime.now() - start_time).days
+    elapsed_str = f"{elapsed_days} days" if elapsed_days > 0 else "today"
+
+    # all trades
+    all_trades = conn.execute("""
+        SELECT executed_at, ticker, market, name, side, qty, price, value, reason
+        FROM trades ORDER BY executed_at
+    """).fetchall()
+
+    # per-market breakdown
+    per_market_html = ""
+    for market in ("india", "us"):
+        if market not in per_market:
+            continue
+        m = per_market[market]
+        pct_ret = (m["current_gbp"] / m["start_gbp"] - 1) * 100 if m["start_gbp"] > 0 else 0
+        per_market_html += f"""
+<tr>
+    <td>{market.upper()}</td>
+    <td>£{m['start_gbp']:,.2f}</td>
+    <td>£{m['current_gbp']:,.2f}</td>
+    <td><span style="color: {'#16a34a' if pct_ret >= 0 else '#dc2626'}">{pct_ret:+.2f}%</span></td>
+    <td>£{m['current_gbp'] - m['start_gbp']:+,.2f}</td>
+</tr>"""
+
+    # trade table
+    trade_html = ""
+    for executed_at, ticker, market, name, side, qty, price, value, reason in all_trades:
+        trade_html += f"""
+<tr>
+    <td {TD}>{executed_at}</td>
+    <td {TD}>{ticker}</td>
+    <td {TD}><span style="color: {'#16a34a' if side == 'BUY' else '#dc2626'}"><b>{side}</b></span></td>
+    <td {TD}>{qty:.4f}</td>
+    <td {TD}>{'₹' if market == 'india' else '$'}{price:,.2f}</td>
+    <td {TD}>{'₹' if market == 'india' else '$'}{value:,.2f}</td>
+    <td {TD}>{reason}</td>
+</tr>"""
+
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:720px;margin:auto">
+    <h2 style="font-size:28px;color:#16a34a;text-align:center">🎯 PROFIT TARGET REACHED!</h2>
+    <p style="font-size:14px;text-align:center;color:#475569">Your trading system has achieved the {target_pct}% profit target and halted all further trading.</p>
+
+    <h3 style="color:#1e293b;margin-top:20px">Investment Summary</h3>
+    <table {TABLE_STYLE}>
+    <tr><th {TH}>Metric</th><th {TH}>Value</th></tr>
+    <tr><td {TD}>Total Invested (GBP)</td><td {TD}><b>£{start_gbp:,.2f}</b></td></tr>
+    <tr><td {TD}>Current Value (GBP)</td><td {TD}><b>£{current_gbp:,.2f}</b></td></tr>
+    <tr><td {TD}>Profit/Loss (GBP)</td><td {TD}><b style="color: {'#16a34a' if pct >= 0 else '#dc2626'}">£{current_gbp - start_gbp:+,.2f}</b></td></tr>
+    <tr><td {TD}>Return %</td><td {TD}><b style="font-size:16px;color:#16a34a">{pct:+.2f}%</b></td></tr>
+    <tr><td {TD}>Target %</td><td {TD}>{target_pct}%</td></tr>
+    <tr><td {TD}>Elapsed Time</td><td {TD}>{elapsed_str}</td></tr>
+    <tr><td {TD}>Total Trades</td><td {TD}>{len(all_trades)}</td></tr>
+    </table>
+
+    <h3 style="color:#1e293b">Per-Market Breakdown (GBP)</h3>
+    <table {TABLE_STYLE}>
+    <tr><th {TH}>Market</th><th {TH}>Started</th><th {TH}>Now</th><th {TH}>Return %</th><th {TH}>Profit/Loss</th></tr>
+    {per_market_html}
+    </table>
+
+    <h3 style="color:#1e293b">Complete Trade History ({len(all_trades)} trades)</h3>
+    <table {TABLE_STYLE}>
+    <tr><th {TH}>Timestamp</th><th {TH}>Ticker</th><th {TH}>Side</th><th {TH}>Qty</th><th {TH}>Price</th><th {TH}>Value</th><th {TH}>Reason</th></tr>
+    {trade_html}
+    </table>
+
+    <p style="font-size:12px;color:#94a3b8;margin-top:20px">
+    Congratulations! Your trading system has successfully reached the {target_pct}% profit target.
+    All trading has been halted. Review the trade history above to understand what worked.
+    <br/>Report generated {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
+    </p>
+    </div>"""
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"🎯 MILESTONE: Profit Target Reached (+{pct:.2f}%)"
+    msg["From"] = EMAIL
+    msg["To"] = EMAIL
+    msg.attach(MIMEText(html, "html"))
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=60) as s:
+            s.starttls()
+            s.login(EMAIL, password)
+            s.sendmail(EMAIL, [EMAIL], msg.as_string())
+        print(f"  [email] 🎯 Milestone email sent: +{pct:.2f}% ({target_pct}% target)")
+    except Exception as e:
+        print(f"  [email] Milestone email failed: {e}")
+
+
 if __name__ == "__main__":
     main()

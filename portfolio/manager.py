@@ -7,6 +7,7 @@ from datetime import datetime
 
 from database import db
 from alerts.notifier import notify_desktop
+from portfolio import guard
 
 CURRENCY = {"india": "₹", "us": "$"}
 
@@ -50,6 +51,11 @@ def process(rows, cfg):
         return
     by_ticker = {r["ticker"]: r for r in rows if r.get("price")}
     conn = db.connect()
+
+    if guard.is_halted(conn):
+        print("  [portfolio] trading is HALTED (profit target reached) — no trades")
+        conn.close()
+        return
 
     for market in ("india", "us"):
         market_rows = [r for r in rows if r["market"] == market and r.get("price")]
@@ -127,4 +133,6 @@ def process(rows, cfg):
               f" = {cur}{cash + value:,.0f}")
 
     conn.commit()
+    # did this run's trades push us to the profit target? halt + email if so
+    guard.check_profit_target(conn, cfg)
     conn.close()

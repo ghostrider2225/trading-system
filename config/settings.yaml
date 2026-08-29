@@ -46,3 +46,6 @@ paper_trading:
   exit_score: 55          # sell when the story changes (score decays below this)
   stop_loss_pct: 10       # safety net; Lynch tolerated dips in good businesses
   take_profit_pct: 50     # let winners run — Lynch's ten-baggers came from patience
+  # Circuit breaker: when combined India+US P&L (in GBP) reaches this, freeze ALL
+  # trading and email a full milestone report. Set to null to disable.
+  profit_target_pct: 10
