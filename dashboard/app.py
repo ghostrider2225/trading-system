@@ -106,7 +106,7 @@ def color_verdict(v):
     return f"color: {VERDICT_COLORS.get(v, '#111')}; font-weight: 600"
 
 
-# ── Peter Lynch's toolkit ──
+# Peter Lynch's toolkit
 LYNCH_CATEGORY_COLORS = {
     "Fast grower": "#16a34a", "Stalwart": "#0891b2", "Slow grower": "#ca8a04",
     "Cyclical": "#ea580c", "Turnaround / struggling": "#dc2626",
@@ -119,7 +119,7 @@ def color_peg(v):
     if not isinstance(v, (int, float)) or pd.isna(v):
         return ""
     if v < 1:
-        return "color: #16a34a; font-weight: 600"   # cheap growth — Lynch buys
+        return "color: #16a34a; font-weight: 600"   # cheap growth Lynch buys
     if v < 2:
         return "color: #ca8a04"                       # fairly priced
     return "color: #dc2626"                           # too expensive
@@ -130,15 +130,15 @@ def color_category(v):
 
 
 def fmt(v, suffix="", nd=2):
-    return f"{v:.{nd}f}{suffix}" if isinstance(v, (int, float)) and pd.notna(v) else "—"
+    return f"{v:.{nd}f}{suffix}" if isinstance(v, (int, float)) and pd.notna(v) else "N/A"
 
 
 st.sidebar.title("📈 Trading System")
 page = st.sidebar.radio("Page", ["Live Portfolio", "Today's Picks", "Stock Detail",
                                  "Score History", "Alerts Log"])
 st.sidebar.caption(
-    "**Strategy: Peter Lynch GARP** — growth at a reasonable price (PEG-driven). "
-    "Paper trading — virtual money, live Yahoo Finance prices, no broker involved. "
+    "**Strategy: Peter Lynch GARP** growth at a reasonable price (PEG-driven). "
+    "Paper trading virtual money, live Yahoo Finance prices, no broker involved. "
     "Scores measure how strongly the data agrees; not guaranteed probabilities, "
     "not financial advice."
 )
@@ -150,13 +150,13 @@ if dates.empty:
 latest = dates["run_date"].iloc[0]
 
 
-# ───────────────────────────── LIVE PORTFOLIO ─────────────────────────────
+# LIVE PORTFOLIO
 @st.fragment(run_every="1s")
 def live_portfolio():
     pos = load("SELECT * FROM positions ORDER BY market, ticker")
     cash_df = load("SELECT market, cash FROM portfolio_cash")
     if cash_df.empty:
-        st.info("No portfolio yet — it is created on the next collector run.")
+        st.info("No portfolio yet. It is created on the next collector run.")
         return
 
     tickers = tuple(sorted(pos["ticker"])) if len(pos) else ()
@@ -168,8 +168,8 @@ def live_portfolio():
         for t in tickers:
             if t in streamed:
                 quotes.setdefault(t, {})["price"] = streamed[t]
-    st.caption(f"🔴 Live — P&L updates every second ({len(streamed)} tickers streaming"
-               f" from Yahoo; markets currently closed just hold their last price) · "
+    st.caption(f"🔴 Live P&L updates every second ({len(streamed)} tickers streaming"
+               f" from Yahoo; markets currently closed just hold their last price) "
                f"{datetime.now().strftime('%H:%M:%S')} (server time)")
 
     buy_reasons = load(
@@ -264,7 +264,7 @@ def live_portfolio():
         buf = return_buffer()
         buf.append({"time": datetime.now(), **live_returns})
         if len(buf) > 1:
-            st.subheader("📈 Live return — moving with your profit")
+            st.subheader("📈 Live return moving with your profit")
             ldf = pd.DataFrame(list(buf)).melt("time", var_name="Market",
                                                value_name="Return %")
             line = alt.Chart(ldf).mark_line(interpolate="monotone").encode(
@@ -278,7 +278,7 @@ def live_portfolio():
                          alt.Tooltip("time:T", format="%H:%M:%S")],
             ).properties(height=260)
             st.altair_chart(line, use_container_width=True)
-            st.caption("India in orange, US in blue — a new point every second while "
+            st.caption("India in orange, US in blue. A new point every second while "
                        "this page is open; the line goes flat when both markets are closed.")
 
     hist_all = load("SELECT snap_date, market, total FROM portfolio_history ORDER BY snap_date")
@@ -288,7 +288,7 @@ def live_portfolio():
     else:
         st.caption("📅 The portfolio-value chart appears after a few daily snapshots.")
 
-    st.subheader("Trade log — every buy & sell with its reason")
+    st.subheader("Trade log every buy & sell with its reason")
     trades = load("SELECT executed_at AS 'When', side, ticker, name, qty, price, value, "
                   "reason AS 'Why' FROM trades ORDER BY executed_at DESC")
     if trades.empty:
@@ -303,26 +303,26 @@ def live_portfolio():
 if page == "Live Portfolio":
     st.title("Live Paper Portfolio")
     st.markdown(
-        "> **Platform:** no broker — this is the system's built-in simulator. "
+        "> **Platform:** no broker. This is the system's built-in simulator. "
         "Prices are live from **Yahoo Finance**; the money is virtual, so nothing "
         "real is at risk while the strategy proves itself.")
     live_portfolio()
 
 elif page == "Today's Picks":
-    st.title(f"Today's Picks — {latest}")
+    st.title(f"Today's Picks {latest}")
     st.caption("Ranked the way Peter Lynch ranked stocks: growth you can buy cheaply, "
                "with a clean balance sheet.")
 
     with st.expander("📖 How to read this table (Peter Lynch's tools)"):
         st.markdown("""
-- **PEG** = P/E ÷ earnings-growth rate — *Lynch's single most important number.*
+- **PEG** = P/E ÷ earnings-growth rate Lynch's single most important number.
   **Below 1 is a bargain** (green): you're paying less than the company's growth is worth.
   Above 2 (red) means the price has run too far ahead of the growth.
-- **EPS Growth %** — how fast profits are growing. Lynch's sweet spot is **15–30%/yr** —
+- **EPS Growth %** How fast profits are growing. Lynch's sweet spot is **15–30%/yr**
   fast enough to compound, not so fast it can't last.
-- **P/E** — how many years of earnings you pay for the stock. Lower is cheaper.
-- **Debt/Equity** — Lynch avoided debt-heavy companies; **lower is safer.**
-- **Category** — Lynch sorted every stock into types. His big winners ("ten-baggers")
+- **P/E** How many years of earnings you pay for the stock. Lower is cheaper.
+- **Debt/Equity** Lynch avoided debt-heavy companies; **lower is safer.**
+- **Category** Lynch sorted every stock into types. His big winners ("ten-baggers")
   came from **Fast growers**; **Stalwarts** are steady blue-chips; **Cyclicals** rise and
   fall with the economy; **Turnarounds** are risky recovery bets.
 """)
@@ -361,7 +361,7 @@ elif page == "Today's Picks":
         .map(color_verdict, subset=["verdict"])
         .map(color_peg, subset=["PEG"])
         .format({"PEG": "{:.2f}", "EPS Growth %": "{:.1f}", "P/E": "{:.1f}",
-                 "Debt/Equity": "{:.0f}", "price": "{:.2f}"}, na_rep="—"),
+                 "Debt/Equity": "{:.0f}", "price": "{:.2f}"}, na_rep="N/A"),
         width="stretch", height=600, hide_index=True)
 
 elif page == "Stock Detail":
@@ -371,7 +371,7 @@ elif page == "Stock Detail":
     if df.empty:
         st.info("No deep-dived stocks for the latest run.")
         st.stop()
-    labels = {f"{r['ticker']} — {r['name']}": r["ticker"] for _, r in df.iterrows()}
+    labels = {f"{r['ticker']} {r['name']}": r["ticker"] for _, r in df.iterrows()}
     choice = st.selectbox("Stock", list(labels))
     t = labels[choice]
     row = df[df["ticker"] == t].iloc[0]
@@ -388,19 +388,19 @@ elif page == "Stock Detail":
     pe = row.get("pe")
     de = row.get("debt_to_equity")
     l1, l2, l3, l4 = st.columns(4)
-    peg_note = ("bargain — pay < growth" if isinstance(peg, (int, float)) and pd.notna(peg)
+    peg_note = ("bargain pay < growth" if isinstance(peg, (int, float)) and pd.notna(peg)
                 and peg < 1 else "fair" if isinstance(peg, (int, float)) and pd.notna(peg)
-                and peg < 2 else "expensive" if pd.notna(peg) else "—")
+                and peg < 2 else "expensive" if pd.notna(peg) else "N/A")
     l1.metric("PEG ratio", fmt(peg), peg_note, delta_color="off")
     g_note = ("sweet spot" if isinstance(eg, (int, float)) and pd.notna(eg) and 15 <= eg <= 30
               else "fast" if isinstance(eg, (int, float)) and pd.notna(eg) and eg > 30
               else "slow" if isinstance(eg, (int, float)) and pd.notna(eg) and eg >= 0
-              else "shrinking" if pd.notna(eg) else "—")
+              else "shrinking" if pd.notna(eg) else "N/A")
     l2.metric("EPS growth", fmt(eg, "%", 1), g_note, delta_color="off")
     l3.metric("P/E ratio", fmt(pe, "", 1))
     l4.metric("Debt / Equity", fmt(de, "", 0),
               "low" if isinstance(de, (int, float)) and pd.notna(de) and de < 50
-              else "high" if pd.notna(de) else "—", delta_color="off")
+              else "high" if pd.notna(de) else "N/A", delta_color="off")
 
     st.subheader("What the system sees")
     for reason in str(row["reasons"]).split(" | "):
@@ -408,7 +408,7 @@ elif page == "Stock Detail":
 
     st.subheader("Price snapshot")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Price", f"{row['price']:,.2f}" if pd.notna(row["price"]) else "—")
+    c1.metric("Price", f"{row['price']:,.2f}" if pd.notna(row["price"]) else "N/A")
     c2.metric("1-month return", f"{row['ret_1m_pct']:.1f}%")
     c3.metric("1-year return", f"{row['ret_1y_pct']:.1f}%")
     c4.metric("Off 52-week high", f"{row['off_high_pct']:.1f}%")
